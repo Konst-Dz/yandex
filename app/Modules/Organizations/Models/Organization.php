@@ -18,6 +18,7 @@ class Organization extends Model
         'user_id',
         'url',
         'status',
+        'failure_reason',
     ];
 
     public function user(): BelongsTo

@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->text('url');
             $table->string('status')->default('pending')->index();
+            $table->string('failure_reason')->nullable();
             $table->decimal('rating', 2, 1)->nullable();
             $table->unsignedInteger('ratings_count')->default(0);
             $table->unsignedInteger('reviews_count')->default(0);

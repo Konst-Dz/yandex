@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('external_id')->index();
             $table->string('author');
             $table->text('text');
-            $table->smallInteger('rating');
+            $table->smallInteger('rating')->nullable();
             $table->timestamp('reviewed_at')->nullable()->index();
             $table->timestamps();
             $table->unique(['organization_id', 'external_id']);

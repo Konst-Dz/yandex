@@ -27,7 +27,7 @@ onMounted(() => {
 });
 
 async function handleSaved(): Promise<void> {
-    await loadOrganization();
+    await router.push({ name: 'organization' });
 }
 
 async function handleLogout(): Promise<void> {
