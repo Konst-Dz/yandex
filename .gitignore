@@ -1,0 +1,43 @@
+# --- IDE / OS ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.fleet/
+.nova/
+.zed/
+
+/vendor/
+/node_modules/
+/.env
+/.env.backup
+/.env.production
+/.phpactor.json
+/.phpunit.result.cache
+/.phpunit.cache
+/storage/*.key
+/storage/pail
+npm-debug.log
+yarn-error.log
+/auth.json
+/Homestead.json
+/Homestead.yaml
+
+/dist/
+
+# --- Сборка фронта (vite build) и hot-reload ---
+/public/build
+/public/hot
+/public/storage
+
+# --- Docker ---
+/docker/.env
+# Самоподписанные сертификаты — генерируются автоматически при первом `docker compose up`
+/docker/nginx/certs/*.pem
+
+.agents
+.ai-factory
+.ai-factory.json
+.mcp.json
+AGENTS.md
+skills-lock.json

@@ -1,0 +1,102 @@
+name: yandex
+
+x-php: &php
+  build:
+    context: ./docker/dockerfiles
+    dockerfile: php.Dockerfile
+    args:
+      USER_ID: ${USER_ID:-1000}
+      GROUP_ID: ${GROUP_ID:-1000}
+  image: yandex-php
+  restart: unless-stopped
+  volumes:
+    - ./:/var/www/app
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  nginx:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    ports:
+      # Порты на хосте — в переменных, чтобы не конфликтовать с другими локальными
+      # проектами (techstore занял 80/443, poradnia — 8080)
+      - "${NGINX_HTTP_PORT:-8082}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+    volumes:
+      # *.template из этой папки envsubst-ится в /etc/nginx/conf.d/ при старте
+      # (шаблон использует ${NGINX_HTTPS_PORT} для редиректа с сохранением порта)
+      - ./docker/nginx/templates:/etc/nginx/templates:ro
+      # Init-скрипт официального образа: генерирует самоподписанный сертификат,
+      # если docker/nginx/certs/cert.pem отсутствует
+      - ./docker/nginx/init/99-generate-certs.sh:/docker-entrypoint.d/99-generate-certs.sh:ro
+      - ./docker/nginx/certs:/etc/nginx/certs
+      - ./:/var/www/app:ro
+    environment:
+      NGINX_HTTPS_PORT: ${NGINX_HTTPS_PORT:-8443}
+    depends_on:
+      php:
+        condition: service_healthy
+    healthcheck:
+      # 127.0.0.1 явно: busybox-wget первым идёт на ::1, где nginx не слушает
+      test: ["CMD-SHELL", "wget -q --spider --no-check-certificate https://127.0.0.1/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  php:
+    <<: *php
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  worker:
+    <<: *php
+    command: php artisan queue:work redis --sleep=3 --tries=3 --backoff=10 --timeout=300 --max-time=3600
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-yandex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-yandex}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-yandex} -d ${POSTGRES_DB:-yandex}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # noeviction по умолчанию — задания очереди не должны выселяться из памяти
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:

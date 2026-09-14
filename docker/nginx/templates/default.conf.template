@@ -1,0 +1,55 @@
+# Локальный веб-сервер: API (php-fpm) + статика собранного SPA из public/
+# ${NGINX_HTTPS_PORT} подставляется из env контейнера (envsubst в официальном образе nginx)
+server {
+    listen 80 default_server;
+    server_name localhost;
+    return 301 https://$host:${NGINX_HTTPS_PORT}$request_uri;
+}
+
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    index index.php index.html;
+    server_name localhost;
+    root /var/www/app/public;
+
+    ssl_certificate     /etc/nginx/certs/cert.pem;
+    ssl_certificate_key /etc/nginx/certs/key.pem;
+
+    client_max_body_size 12M;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json text/plain image/svg+xml;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Liveness-проба nginx: отвечает и до установки Laravel, и после
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    # Статика SPA (vite build) и файлы Laravel public/ отдаются nginx напрямую
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # Переменный upstream + resolver: php-контейнер может перезапуститься с новым IP
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        set $php_upstream php:9000;
+        fastcgi_pass $php_upstream;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param HTTPS on;
+        fastcgi_buffer_size 32k;
+        fastcgi_buffers 8 32k;
+    }
+}

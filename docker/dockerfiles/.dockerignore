@@ -1,0 +1,7 @@
+# Used by PHP image build (context: docker/dockerfiles)
+.git
+*.md
+.DS_Store
+Thumbs.db
+.idea
+.vscode
