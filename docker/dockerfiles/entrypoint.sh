@@ -13,8 +13,6 @@ do
     mkdir -p "$dir"
 done
 
-# chown рекурсивно: при bind-mount промежуточные каталоги (storage/, storage/framework/,
-# storage/framework/cache/) создаются root'ом и без этого остаются недоступными для записи
 chown -R app:app /var/www/app/storage /var/www/app/bootstrap/cache 2>/dev/null || true
 chmod -R ug+rwx /var/www/app/storage /var/www/app/bootstrap/cache 2>/dev/null || true
 

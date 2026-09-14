@@ -1,5 +1,3 @@
-# Локальный веб-сервер: API (php-fpm) + статика собранного SPA из public/
-# ${NGINX_HTTPS_PORT} подставляется из env контейнера (envsubst в официальном образе nginx)
 server {
     listen 80 default_server;
     server_name localhost;
@@ -27,18 +25,15 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # Liveness-проба nginx: отвечает и до установки Laravel, и после
     location = /healthz {
         access_log off;
         return 200 "ok\n";
     }
 
-    # Статика SPA (vite build) и файлы Laravel public/ отдаются nginx напрямую
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
-    # Переменный upstream + resolver: php-контейнер может перезапуститься с новым IP
     location ~ \.php$ {
         try_files $uri =404;
         fastcgi_split_path_info ^(.+\.php)(/.+)$;

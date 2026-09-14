@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Auth\Http\Controllers\AuthController;
+use App\Modules\Organizations\Http\Controllers\OrganizationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -7,9 +9,17 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// Smoke-маршрут каркаса: проверка связки nginx -> php-fpm -> Laravel
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+Route::get('/auth/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/organization', [OrganizationController::class, 'index']);
+    Route::post('/organization/link', [OrganizationController::class, 'saveLink']);
+    Route::get('/organization/reviews', [OrganizationController::class, 'reviews']);
+});
+
 Route::get('/ping', fn () => response()->json([
     'pong' => true,
     'time' => now()->toIso8601String(),
 ]));
-

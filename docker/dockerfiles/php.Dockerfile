@@ -13,7 +13,6 @@ RUN apk add --no-cache $PHPIZE_DEPS linux-headers \
     && docker-php-ext-enable xdebug \
     && apk del $PHPIZE_DEPS linux-headers
 
-# PostgreSQL (основная БД проекта) + pcntl/bcmath для воркеров очередей
 RUN apk add --no-cache postgresql-dev \
     && docker-php-ext-install pdo_pgsql pcntl bcmath opcache
 

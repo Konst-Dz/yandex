@@ -2,23 +2,18 @@
 
 namespace App\Providers;
 
+use App\Modules\Organizations\Contracts\OrganizationServiceInterface;
+use App\Modules\Organizations\Services\OrganizationService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->bind(OrganizationServiceInterface::class, OrganizationService::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
     }
 }

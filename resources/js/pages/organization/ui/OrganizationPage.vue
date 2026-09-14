@@ -1,10 +1,6 @@
-<script setup lang="ts">
-// Заглушка каркаса: наполнение — фаза entities/organization + entities/review.
-</script>
-
 <template>
     <section class="page">
-        <h1 class="page__title">Отзывы организации</h1>
+        <h1 class="page__title">Organization reviews</h1>
     </section>
 </template>
 

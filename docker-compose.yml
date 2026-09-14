@@ -19,16 +19,10 @@ services:
     image: nginx:1.28-alpine
     restart: unless-stopped
     ports:
-      # Порты на хосте — в переменных, чтобы не конфликтовать с другими локальными
-      # проектами (techstore занял 80/443, poradnia — 8080)
       - "${NGINX_HTTP_PORT:-8082}:80"
       - "${NGINX_HTTPS_PORT:-8443}:443"
     volumes:
-      # *.template из этой папки envsubst-ится в /etc/nginx/conf.d/ при старте
-      # (шаблон использует ${NGINX_HTTPS_PORT} для редиректа с сохранением порта)
       - ./docker/nginx/templates:/etc/nginx/templates:ro
-      # Init-скрипт официального образа: генерирует самоподписанный сертификат,
-      # если docker/nginx/certs/cert.pem отсутствует
       - ./docker/nginx/init/99-generate-certs.sh:/docker-entrypoint.d/99-generate-certs.sh:ro
       - ./docker/nginx/certs:/etc/nginx/certs
       - ./:/var/www/app:ro
@@ -38,7 +32,6 @@ services:
       php:
         condition: service_healthy
     healthcheck:
-      # 127.0.0.1 явно: busybox-wget первым идёт на ::1, где nginx не слушает
       test: ["CMD-SHELL", "wget -q --spider --no-check-certificate https://127.0.0.1/healthz || exit 1"]
       interval: 10s
       timeout: 5s
@@ -59,8 +52,6 @@ services:
 
   worker:
     <<: *php
-    # Очередь в PostgreSQL (database driver): таблицы jobs/failed из дефолтных миграций Laravel.
-    # Путь масштабирования: QUEUE_CONNECTION=redis в .env + сервис redis здесь.
     command: php artisan queue:work database --sleep=3 --tries=3 --backoff=10 --timeout=300 --max-time=3600
     depends_on:
       postgres:

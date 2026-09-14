@@ -1,6 +1,4 @@
 #!/bin/sh
-# Генерирует самоподписанный сертификат для локального HTTPS при первом запуске.
-# Файлы сертификатов не хранятся в git — см. .gitignore (docker/nginx/certs/*.pem).
 set -e
 
 if [ ! -f /etc/nginx/certs/cert.pem ] || [ ! -f /etc/nginx/certs/key.pem ]; then
