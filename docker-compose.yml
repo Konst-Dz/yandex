@@ -50,8 +50,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong"]
       interval: 10s
@@ -61,11 +59,11 @@ services:
 
   worker:
     <<: *php
-    command: php artisan queue:work redis --sleep=3 --tries=3 --backoff=10 --timeout=300 --max-time=3600
+    # Очередь в PostgreSQL (database driver): таблицы jobs/failed из дефолтных миграций Laravel.
+    # Путь масштабирования: QUEUE_CONNECTION=redis в .env + сервис redis здесь.
+    command: php artisan queue:work database --sleep=3 --tries=3 --backoff=10 --timeout=300 --max-time=3600
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
   postgres:
@@ -84,19 +82,5 @@ services:
       retries: 10
       start_period: 10s
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    # noeviction по умолчанию — задания очереди не должны выселяться из памяти
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
 volumes:
   postgres_data:
-  redis_data:
