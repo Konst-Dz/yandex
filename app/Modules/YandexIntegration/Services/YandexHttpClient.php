@@ -3,6 +3,7 @@
 namespace App\Modules\YandexIntegration\Services;
 
 use App\Modules\YandexIntegration\Exceptions\BlockedByAntibotException;
+use App\Modules\YandexIntegration\Exceptions\EmptyResponseException;
 use App\Modules\YandexIntegration\Exceptions\SourceUnavailableException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -42,6 +43,10 @@ class YandexHttpClient
         }
 
         $body = $response->body();
+
+        if (trim($body) === '') {
+            throw new EmptyResponseException("empty response body for {$url}");
+        }
 
         foreach (self::BLOCK_MARKERS as $marker) {
             if (str_contains($body, $marker)) {

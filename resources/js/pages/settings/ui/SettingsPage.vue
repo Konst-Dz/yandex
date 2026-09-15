@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { onMounted, shallowRef } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
 
 import { getOrganization } from '@/entities/organization';
 import type { Organization, OrganizationStatus } from '@/entities/organization';
@@ -15,6 +15,8 @@ const { data: organization, status, error, run: loadOrganization } = useAsync<Or
 const { user, logout } = useAuth();
 const router = useRouter();
 
+const reconnecting = shallowRef(false);
+
 const STATUS_LABELS: Record<OrganizationStatus, string> = {
     pending: 'Awaiting parsing',
     parsing: 'Parsing in progress',
@@ -27,6 +29,8 @@ onMounted(() => {
 });
 
 async function handleSaved(): Promise<void> {
+    reconnecting.value = false;
+    await loadOrganization();
     await router.push({ name: 'organization' });
 }
 
@@ -76,6 +80,28 @@ async function handleLogout(): Promise<void> {
                         <dd>{{ organization.reviewsCount }}</dd>
                     </div>
                 </dl>
+
+                <div class="settings__actions">
+                    <RouterLink
+                        v-if="organization.status === 'ready'"
+                        class="settings__button settings__button_primary"
+                        :to="{ name: 'organization' }"
+                    >
+                        View reviews
+                    </RouterLink>
+                    <button
+                        class="settings__button"
+                        type="button"
+                        @click="reconnecting = !reconnecting"
+                    >
+                        {{ reconnecting ? 'Hide form' : 'Change link' }}
+                    </button>
+                </div>
+
+                <div v-if="reconnecting" class="settings__reconnect">
+                    <ConnectOrganizationForm @saved="handleSaved" />
+                    <p class="settings__note">Saving a different link resets previously imported reviews.</p>
+                </div>
             </div>
         </StateBlock>
     </section>
@@ -156,5 +182,42 @@ async function handleLogout(): Promise<void> {
 .settings__row dd {
     margin: 0;
     word-break: break-all;
+}
+
+.settings__actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.settings__button {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    background: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.settings__button:hover {
+    background: #f3f4f6;
+}
+
+.settings__button_primary {
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.settings__reconnect {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.settings__note {
+    margin: 0.75rem 0 0;
+    font-size: 0.8rem;
+    color: #6b7280;
 }
 </style>

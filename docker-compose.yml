@@ -8,7 +8,7 @@ x-php: &php
       USER_ID: ${USER_ID:-1000}
       GROUP_ID: ${GROUP_ID:-1000}
   image: yandex-php
-  restart: unless-stopped
+  restart: "no"
   volumes:
     - ./:/var/www/app
   extra_hosts:
@@ -17,7 +17,7 @@ x-php: &php
 services:
   nginx:
     image: nginx:1.28-alpine
-    restart: unless-stopped
+    restart: "no"
     ports:
       - "${NGINX_HTTP_PORT:-8082}:80"
       - "${NGINX_HTTPS_PORT:-8443}:443"
@@ -59,7 +59,7 @@ services:
 
   postgres:
     image: postgres:17-alpine
-    restart: unless-stopped
+    restart: "no"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-yandex}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
