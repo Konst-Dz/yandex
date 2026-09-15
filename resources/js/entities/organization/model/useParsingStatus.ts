@@ -1,6 +1,6 @@
-import { onUnmounted, shallowRef } from 'vue'
+import { onUnmounted, shallowRef, toValue } from 'vue'
 
-import type { Ref } from 'vue'
+import type { MaybeRefOrGetter, Ref } from 'vue'
 
 import { getParsingStatus } from '../api'
 
@@ -12,7 +12,10 @@ const MAX_DELAY_MS = 15000
 
 const MAX_FAILURES = 5
 
-export function useParsingStatus(organizationId: number, onFinished?: () => void): ParsingStatusState {
+export function useParsingStatus(
+    organizationId: MaybeRefOrGetter<number>,
+    onFinished?: () => void,
+): ParsingStatusState {
     const status = shallowRef<ParsingStatus>('idle')
     const reason = shallowRef<string | null>(null)
 
@@ -33,7 +36,7 @@ export function useParsingStatus(organizationId: number, onFinished?: () => void
 
     async function run(): Promise<void> {
         try {
-            const response = await getParsingStatus(organizationId)
+            const response = await getParsingStatus(toValue(organizationId))
             failures = 0
             status.value = response.data.status
             reason.value = response.data.reason

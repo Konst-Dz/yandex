@@ -33,7 +33,7 @@ const {
     run: executeReviews,
 } = useAsync<PaginatedReviews | null>(async () => getReviews(organizationId.value, page.value));
 
-const parsing = useParsingStatus(organizationId.value, () => {
+const parsing = useParsingStatus(organizationId, () => {
     void loadOrganization();
     void executeReviews();
 });

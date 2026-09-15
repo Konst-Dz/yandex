@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, shallowRef } from 'vue';
+import { onMounted, onUnmounted, shallowRef, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 
 import {
@@ -29,14 +29,56 @@ const adding = shallowRef(false);
 const editingId = shallowRef<number | null>(null);
 const deletingId = shallowRef<number | null>(null);
 
+let statusTimer: ReturnType<typeof setInterval> | null = null;
+
+const POLL_INTERVAL_MS = 3000;
+
 onMounted(() => {
     void loadOrganizations();
 });
 
+function hasUnfinished(list: Organization[] | null): boolean {
+    return (list ?? []).some((item) => item.status === 'pending' || item.status === 'parsing');
+}
+
+function stopPolling(): void {
+    if (statusTimer !== null) {
+        clearInterval(statusTimer);
+        statusTimer = null;
+    }
+}
+
+function syncStatusPolling(list: Organization[] | null): void {
+    if (hasUnfinished(list)) {
+        if (statusTimer === null) {
+            statusTimer = setInterval(async () => {
+                try {
+                    organizations.value = (await listOrganizations()).data;
+                } catch {
+                    // keep the previous list; the next tick retries
+                }
+            }, POLL_INTERVAL_MS);
+        }
+        return;
+    }
+
+    stopPolling();
+}
+
+watch(organizations, (list) => {
+    syncStatusPolling(list);
+});
+
+onUnmounted(stopPolling);
+
 async function handleSaved(): Promise<void> {
     adding.value = false;
     editingId.value = null;
-    await loadOrganizations();
+    try {
+        organizations.value = (await listOrganizations()).data;
+    } catch {
+        await loadOrganizations();
+    }
 }
 
 async function handleDelete(organization: Organization): Promise<void> {
