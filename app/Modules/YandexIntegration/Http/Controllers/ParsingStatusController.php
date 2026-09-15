@@ -15,21 +15,18 @@ class ParsingStatusController extends ApiController
     {
     }
 
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, int $organization): JsonResponse
     {
-        $organization = $this->organizations->data((int) $request->user()->id);
+        $found = $this->organizations->find((int) $request->user()->id, $organization);
 
-        if ($organization === null) {
-            return ApiResponse::success([
-                'status' => 'idle',
-                'reason' => null,
-            ]);
+        if ($found === null) {
+            return ApiResponse::error('Not found.', 404);
         }
 
         return ApiResponse::success([
-            'status' => $organization->status,
-            'reason' => $organization->status === Organization::STATUS_ERROR
-                ? $organization->failure_reason
+            'status' => $found->status,
+            'reason' => $found->status === Organization::STATUS_ERROR
+                ? $found->failure_reason
                 : null,
         ]);
     }

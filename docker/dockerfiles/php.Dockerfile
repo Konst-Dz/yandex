@@ -1,4 +1,4 @@
-FROM php:8.4-fpm-alpine
+FROM php:8.5-fpm-alpine
 
 ARG USER_ID=1000
 ARG GROUP_ID=1000
@@ -9,12 +9,12 @@ RUN addgroup -g ${GROUP_ID} -S app \
     && adduser -u ${USER_ID} -G app -S -D -h /var/www/app app
 
 RUN apk add --no-cache $PHPIZE_DEPS linux-headers \
-    && pecl install xdebug-3.4.2 \
+    && pecl install xdebug \
     && docker-php-ext-enable xdebug \
     && apk del $PHPIZE_DEPS linux-headers
 
 RUN apk add --no-cache postgresql-dev \
-    && docker-php-ext-install pdo_pgsql pcntl bcmath opcache
+    && docker-php-ext-install pdo_pgsql pcntl bcmath
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 RUN apk add --no-cache git unzip fcgi

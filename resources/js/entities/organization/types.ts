@@ -4,8 +4,10 @@ export type ParsingStatus = 'idle' | OrganizationStatus
 
 export interface Organization {
     id: number
+    name: string
     url: string
     status: OrganizationStatus
+    failureReason: string | null
     rating: number | null
     ratingsCount: number
     reviewsCount: number

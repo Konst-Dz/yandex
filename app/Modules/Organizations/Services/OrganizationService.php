@@ -9,25 +9,55 @@ use App\Modules\Organizations\Models\Review;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class OrganizationService implements OrganizationServiceInterface
 {
     public const REVIEWS_PER_PAGE = 50;
 
+    public function list(int $userId): Collection
+    {
+        return Organization::query()
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->get();
+    }
+
     public function saveLink(int $userId, string $url): Organization
     {
-        $organization = Organization::query()->where('user_id', $userId)->first();
+        $organization = new Organization([
+            'user_id' => $userId,
+            'url' => $url,
+            'status' => Organization::STATUS_PENDING,
+        ]);
+        $organization->save();
 
-        $isNew = $organization === null;
+        OrganizationLinkSaved::dispatch($organization->id, $url);
 
-        $organization ??= new Organization(['user_id' => $userId]);
+        Log::info('organizations.link_saved', [
+            'organization_id' => $organization->id,
+            'host' => parse_url($url, PHP_URL_HOST),
+        ]);
 
-        $cardChanged = !$isNew && $organization->url !== $url;
+        return $organization;
+    }
 
-        if ($cardChanged) {
+    public function updateLink(int $userId, int $organizationId, string $url): ?Organization
+    {
+        $organization = $this->find($userId, $organizationId);
+
+        if ($organization === null) {
+            return null;
+        }
+
+        if ($organization->url !== $url) {
             $organization->reviews()->delete();
+            $organization->rating = null;
+            $organization->ratings_count = 0;
+            $organization->reviews_count = 0;
         }
 
         $organization->url = $url;
@@ -36,24 +66,39 @@ class OrganizationService implements OrganizationServiceInterface
 
         OrganizationLinkSaved::dispatch($organization->id, $url);
 
-        Log::info('organizations.link_saved', [
+        Log::info('organizations.link_updated', [
             'organization_id' => $organization->id,
-            'host' => parse_url($url, PHP_URL_HOST),
-            'is_new' => $isNew,
-            'card_changed' => $cardChanged,
+            'url_changed' => $organization->wasChanged('url'),
         ]);
 
         return $organization;
     }
 
-    public function data(int $userId): ?Organization
+    public function find(int $userId, int $organizationId): ?Organization
     {
-        return Organization::query()->where('user_id', $userId)->first();
+        return Organization::query()
+            ->where('user_id', $userId)
+            ->find($organizationId);
     }
 
-    public function reviews(int $userId, int $page): LengthAwarePaginator
+    public function delete(int $userId, int $organizationId): bool
     {
-        $organization = $this->data($userId);
+        $organization = $this->find($userId, $organizationId);
+
+        if ($organization === null) {
+            return false;
+        }
+
+        $organization->delete();
+
+        Log::info('organizations.deleted', ['organization_id' => $organizationId]);
+
+        return true;
+    }
+
+    public function reviews(int $userId, int $organizationId, int $page): LengthAwarePaginator
+    {
+        $organization = $this->find($userId, $organizationId);
 
         if ($organization === null) {
             return new Paginator([], 0, self::REVIEWS_PER_PAGE, $page);
@@ -158,5 +203,23 @@ class OrganizationService implements OrganizationServiceInterface
             'organization_id' => $organizationId,
             'reason' => $reason,
         ]);
+    }
+
+    public static function displayNameFromUrl(string $url): string
+    {
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $slug = null;
+
+        if (preg_match('#/org/([a-z0-9_%-]+)/#i', $path, $m) === 1) {
+            $slug = $m[1];
+        }
+
+        if ($slug === null) {
+            return (string) parse_url($url, PHP_URL_HOST);
+        }
+
+        $name = str_replace('_', ' ', urldecode($slug));
+
+        return Str::headline($name);
     }
 }

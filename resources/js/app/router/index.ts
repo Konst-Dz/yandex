@@ -11,7 +11,8 @@ const router = createRouter({
         { path: '/', redirect: { name: 'login' } },
         { path: '/login', name: 'login', component: LoginPage },
         { path: '/settings', name: 'settings', component: SettingsPage, meta: { requiresAuth: true } },
-        { path: '/organization', name: 'organization', component: OrganizationPage, meta: { requiresAuth: true } },
+        { path: '/organizations/:id(\\d+)', name: 'organization', component: OrganizationPage, meta: { requiresAuth: true } },
+        { path: '/organization', redirect: { name: 'settings' } },
     ],
 });
 

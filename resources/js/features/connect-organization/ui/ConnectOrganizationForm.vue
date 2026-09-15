@@ -1,18 +1,32 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 
-import { saveOrganizationLink } from '@/entities/organization'
+import { saveOrganizationLink, updateOrganizationLink } from '@/entities/organization'
 import { ApiError } from '@/shared/api'
 
 import type { Organization } from '@/entities/organization'
+
+const props = defineProps<{
+    organization?: Organization
+}>()
 
 const emit = defineEmits<{
     saved: [organization: Organization]
 }>()
 
-const url = shallowRef('')
+const url = shallowRef(props.organization?.url ?? '')
 const error = shallowRef<string | null>(null)
 const submitting = shallowRef(false)
+
+const isEdit = computed(() => props.organization !== undefined)
+
+const submitLabel = computed(() => {
+    if (submitting.value) {
+        return isEdit.value ? 'Saving…' : 'Connecting…'
+    }
+
+    return isEdit.value ? 'Save' : 'Connect'
+})
 
 async function submit(): Promise<void> {
     if (submitting.value) {
@@ -23,7 +37,9 @@ async function submit(): Promise<void> {
     error.value = null
 
     try {
-        const response = await saveOrganizationLink(url.value)
+        const response = isEdit.value
+            ? await updateOrganizationLink(props.organization!.id, url.value)
+            : await saveOrganizationLink(url.value)
         emit('saved', response.data)
     } catch (e) {
         error.value = describeError(e)
@@ -58,7 +74,7 @@ function describeError(e: unknown): string {
         <p v-if="error !== null" class="connect__error" role="alert">{{ error }}</p>
 
         <button class="connect__submit" type="submit" :disabled="submitting">
-            {{ submitting ? 'Connecting…' : 'Connect' }}
+            {{ submitLabel }}
         </button>
     </form>
 </template>

@@ -52,7 +52,7 @@ services:
 
   worker:
     <<: *php
-    command: php artisan queue:work database --sleep=3 --tries=3 --backoff=10 --timeout=300 --max-time=3600
+    command: php artisan queue:work database --sleep=3 --tries=3 --backoff=10 --timeout=630 --max-time=3600
     depends_on:
       postgres:
         condition: service_healthy

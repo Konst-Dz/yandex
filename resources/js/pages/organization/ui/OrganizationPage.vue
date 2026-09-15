@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, shallowRef, watch } from 'vue';
-import { RouterLink } from 'vue-router';
+import { computed, onMounted, shallowRef, watch } from 'vue';
+import { RouterLink, useRoute } from 'vue-router';
 
 import {
     getOrganization,
@@ -14,6 +14,9 @@ import type {
 import { useAsync } from '@/shared/lib';
 import { Pagination, StateBlock } from '@/shared/ui';
 
+const route = useRoute();
+const organizationId = computed(() => Number(route.params.id));
+
 const page = shallowRef(1);
 
 const {
@@ -21,16 +24,16 @@ const {
     status: organizationStatus,
     error: organizationError,
     run: loadOrganization,
-} = useAsync<Organization | null>(async () => (await getOrganization()).data);
+} = useAsync<Organization | null>(async () => (await getOrganization(organizationId.value)).data);
 
 const {
     data: reviews,
     status: reviewsStatus,
     error: reviewsError,
     run: executeReviews,
-} = useAsync<PaginatedReviews | null>(async () => getReviews(page.value));
+} = useAsync<PaginatedReviews | null>(async () => getReviews(organizationId.value, page.value));
 
-const parsing = useParsingStatus(() => {
+const parsing = useParsingStatus(organizationId.value, () => {
     void loadOrganization();
     void executeReviews();
 });
@@ -39,7 +42,13 @@ onMounted(() => {
     void loadOrganization();
 });
 
-watch(organization, (value) => {
+watch([organizationId, organization], ([id, value], [prevId]) => {
+    if (id !== prevId) {
+        page.value = 1;
+        void loadOrganization();
+        return;
+    }
+
     if (value !== null && (value.status === 'pending' || value.status === 'parsing')) {
         parsing.start();
     }
@@ -66,76 +75,80 @@ function formatRating(value: number | null): string {
 <template>
     <section class="org">
         <header class="org__header">
-            <h1 class="org__title">Organization reviews</h1>
-            <RouterLink class="org__settings" :to="{ name: 'settings' }">Settings</RouterLink>
+            <div>
+                <h1 class="org__title">{{ organization?.name ?? 'Organization reviews' }}</h1>
+                <a
+                    v-if="organization !== null"
+                    class="org__source"
+                    :href="organization.url"
+                    target="_blank"
+                    rel="noopener"
+                >
+                    {{ organization.url }}
+                </a>
+            </div>
+            <RouterLink class="org__settings" :to="{ name: 'settings' }">All organizations</RouterLink>
         </header>
 
         <StateBlock :status="organizationStatus" :error="organizationError" @retry="loadOrganization">
-            <div v-if="organization === null" class="org__block">
-                <p class="org__empty">No organization connected yet.</p>
-                <RouterLink class="org__connect" :to="{ name: 'settings' }">Connect organization</RouterLink>
+            <div v-if="organization !== null && organization.status === 'error'" class="org__block org__error">
+                <h2 class="org__subtitle">Parsing failed</h2>
+                <p class="org__reason">{{ parsing.reason.value ?? organization.failureReason }}</p>
+                <RouterLink class="org__settings" :to="{ name: 'settings' }">Back to settings</RouterLink>
             </div>
 
-            <div v-else class="org__content">
-                <div v-if="parsing.status.value === 'pending' || parsing.status.value === 'parsing'" class="org__block">
-                    <StateBlock status="loading">
-                        <p>Parsing organization data…</p>
-                    </StateBlock>
-                </div>
+            <div v-else-if="organization !== null && organization.status !== 'ready'" class="org__block">
+                <StateBlock status="loading">
+                    <p>Parsing organization data…</p>
+                </StateBlock>
+            </div>
 
-                <div v-else-if="organization.status === 'error'" class="org__block org__error">
-                    <h2 class="org__subtitle">Parsing failed</h2>
-                    <p class="org__reason">{{ parsing.reason.value ?? organization.url }}</p>
-                    <RouterLink class="org__connect" :to="{ name: 'settings' }">Reconnect in settings</RouterLink>
-                </div>
-
-                <template v-else>
-                    <div class="org__summary">
-                        <div class="org__rating">
-                            <span class="org__rating-value">{{ formatRating(organization.rating) }}</span>
-                            <span class="org__rating-caption">average rating</span>
+            <template v-else-if="organization !== null">
+                <div class="org__summary">
+                    <div class="org__rating">
+                        <span class="org__rating-value">{{ formatRating(organization.rating) }}</span>
+                        <span class="org__rating-caption">average rating</span>
+                    </div>
+                    <div class="org__counters">
+                        <div class="org__counter">
+                            <span class="org__counter-value">{{ organization.ratingsCount }}</span>
+                            <span class="org__counter-caption">ratings</span>
                         </div>
-                        <div class="org__counters">
-                            <div class="org__counter">
-                                <span class="org__counter-value">{{ organization.ratingsCount }}</span>
-                                <span class="org__counter-caption">ratings</span>
-                            </div>
-                            <div class="org__counter">
-                                <span class="org__counter-value">{{ organization.reviewsCount }}</span>
-                                <span class="org__counter-caption">reviews</span>
-                            </div>
+                        <div class="org__counter">
+                            <span class="org__counter-value">{{ organization.reviewsCount }}</span>
+                            <span class="org__counter-caption">reviews</span>
                         </div>
                     </div>
+                </div>
 
-                    <h2 class="org__subtitle">Reviews</h2>
+                <h2 class="org__subtitle">Reviews</h2>
 
-                    <StateBlock :status="reviewsStatus" :error="reviewsError" @retry="executeReviews">
-                        <ul class="org__list">
-                            <li
-                                v-for="review in reviews?.data ?? []"
-                                :key="review.id"
-                                class="org__review"
-                            >
-                                <div class="org__review-head">
-                                    <span class="org__review-author">{{ review.author }}</span>
-                                    <span class="org__review-meta">
-                                        <span class="org__review-rating">★ {{ review.rating ?? '—' }}</span>
-                                        <span class="org__review-date">{{ formatDate(review.reviewedAt) }}</span>
-                                    </span>
-                                </div>
-                                <p class="org__review-text">{{ review.text }}</p>
-                            </li>
-                        </ul>
+                <StateBlock :status="reviewsStatus" :error="reviewsError" @retry="executeReviews">
+                    <ul class="org__list">
+                        <li
+                            v-for="review in reviews?.data ?? []"
+                            :key="review.id"
+                            class="org__review"
+                        >
+                            <div class="org__review-head">
+                                <span class="org__review-author">{{ review.author }}</span>
+                                <span class="org__review-meta">
+                                    <span class="org__review-rating">★ {{ review.rating ?? '—' }}</span>
+                                    <span class="org__review-date">{{ formatDate(review.reviewedAt) }}</span>
+                                </span>
+                            </div>
+                            <p class="org__review-text">{{ review.text }}</p>
+                        </li>
+                    </ul>
 
-                        <Pagination
-                            :page="page"
-                            :last-page="reviews?.meta.last_page ?? 1"
-                            :disabled="reviewsStatus === 'loading'"
-                            @change="changePage"
-                        />
-                    </StateBlock>
-                </template>
-            </div>
+                    <Pagination
+                        :page="page"
+                        :last-page="reviews?.meta.last_page ?? 1"
+                        :disabled="reviewsStatus === 'loading'"
+                        @change="changePage"
+                    />
+                </StateBlock>
+            </template>
         </StateBlock>
     </section>
 </template>
@@ -149,14 +162,22 @@ function formatRating(value: number | null): string {
 
 .org__header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 1rem;
     margin-bottom: 1.5rem;
 }
 
 .org__title {
     margin: 0;
     font-size: 1.5rem;
+}
+
+.org__source {
+    font-size: 0.8rem;
+    color: #6b7280;
+    text-decoration: none;
+    word-break: break-all;
 }
 
 .org__settings,
@@ -166,6 +187,7 @@ function formatRating(value: number | null): string {
     border-radius: 0.5rem;
     color: #1d4ed8;
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .org__block {
@@ -176,24 +198,19 @@ function formatRating(value: number | null): string {
     text-align: center;
 }
 
-.org__empty {
-    margin: 0 0 1rem;
-    color: #4b5563;
-}
-
 .org__subtitle {
     margin: 1.5rem 0 0.75rem;
     font-size: 1.125rem;
 }
 
-.org__error {
-    border-color: #fecaca;
-    background: #fef2f2;
-}
-
 .org__reason {
     color: #b91c1c;
     margin: 0 0 1rem;
+}
+
+.org__error {
+    border-color: #fecaca;
+    background: #fef2f2;
 }
 
 .org__summary {
