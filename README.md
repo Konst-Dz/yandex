@@ -10,7 +10,7 @@ docker compose exec php php artisan migrate --seed
 
 npm install && npm run build      
 
-Логин: admin@example.com / 
+Login: admin@example.com 
 
 Password: password 
 
@@ -79,5 +79,9 @@ Headless — работает, но парсинг в разы медленне�
 
 
 Что доделал бы (учитывая только тестовое):
+
 Свежие данные по крону для существующих организций.
+
+Функциональные тесты.
+
 Опционально:Экран/блок истории изменений (было 4.7 стало 4.6).
